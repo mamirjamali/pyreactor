@@ -98,53 +98,7 @@ class Tensor:
             strides=strides,
             offset=offset,
         )
-
-    def __getitem__(self, indices: int | tuple[int, ...]) -> Any | "Tensor":
-        """Return a scalar or shared-storage view for the given indices."""
-        if isinstance(indices, int) and not isinstance(indices, bool):
-            indices = (indices,)
-        elif not isinstance(indices, tuple):
-            raise TypeError(
-                "Indices must be an integer or a tuple of integers."
-            )
-
-        storage_index = self._storage_index(
-            indices,
-            allow_partial=True,
-        )
-
-        if len(indices) == len(self.shape):
-            return self.storage[storage_index]
-
-        remaining_shape = self.shape[len(indices):]
-        remaining_strides = self.strides[len(indices):]
-
-        return self._create_view(
-            shape=remaining_shape,
-            strides=remaining_strides,
-            offset=storage_index,
-        )
-
-    def __setitem__(
-        self,
-        indices: int | tuple[int, ...],
-        value: Any,
-    ) -> None:
-        """Assign a scalar using complete tensor coordinates.
-
-        Partial-index assignment is not supported yet. Select a view first
-        when you want to modify an element inside a sub-tensor.
-        """
-        if isinstance(indices, int) and not isinstance(indices, bool):
-            indices = (indices,)
-        elif not isinstance(indices, tuple):
-            raise TypeError(
-                "Indices must be an integer or a tuple of integers."
-            )
-
-        storage_index = self._storage_index(indices)
-        self.storage[storage_index] = value
-
+    
     @property
     def T(self) -> "Tensor":
         """Return a view with the axis order reversed."""
@@ -194,3 +148,56 @@ class Tensor:
             new_storage.append(self.storage[storage_index])
 
         return Tensor(new_storage, self.shape)
+
+    def __getitem__(self, indices: int | tuple[int, ...]) -> Any | "Tensor":
+        """Return a scalar or shared-storage view for the given indices."""
+        if isinstance(indices, int) and not isinstance(indices, bool):
+            indices = (indices,)
+        elif not isinstance(indices, tuple):
+            raise TypeError(
+                "Indices must be an integer or a tuple of integers."
+            )
+
+        storage_index = self._storage_index(
+            indices,
+            allow_partial=True,
+        )
+
+        if len(indices) == len(self.shape):
+            return self.storage[storage_index]
+
+        remaining_shape = self.shape[len(indices):]
+        remaining_strides = self.strides[len(indices):]
+
+        return self._create_view(
+            shape=remaining_shape,
+            strides=remaining_strides,
+            offset=storage_index,
+        )
+
+    def __setitem__(
+        self,
+        indices: int | tuple[int, ...],
+        value: Any,
+    ) -> None:
+        """Assign a scalar using complete tensor coordinates.
+
+        Partial-index assignment is not supported yet. Select a view first
+        when you want to modify an element inside a sub-tensor.
+        """
+        if isinstance(indices, int) and not isinstance(indices, bool):
+            indices = (indices,)
+        elif not isinstance(indices, tuple):
+            raise TypeError(
+                "Indices must be an integer or a tuple of integers."
+            )
+
+        storage_index = self._storage_index(indices)
+        self.storage[storage_index] = value
+
+    # def _normalize_slice(
+    #     self,
+    #     item: slice,
+    #     dim: int,
+    # ) -> tuple[int, int, int]:
+    #     ...
