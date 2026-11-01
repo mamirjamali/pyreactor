@@ -9,6 +9,8 @@ from pyreactor.helper.validation import (
     validate_metadata,
     validate_shape,
     validate_strides,
+    validate_getitem_indices,
+    is_integer_indices,
 )
 
 
@@ -149,31 +151,167 @@ class Tensor:
 
         return Tensor(new_storage, self.shape)
 
-    def __getitem__(self, indices: int | tuple[int, ...]) -> Any | "Tensor":
-        """Return a scalar or shared-storage view for the given indices."""
-        if isinstance(indices, int) and not isinstance(indices, bool):
-            indices = (indices,)
-        elif not isinstance(indices, tuple):
-            raise TypeError(
-                "Indices must be an integer or a tuple of integers."
+    def _normalize_slice(
+        self,
+        item: slice,
+        axis: int,
+    ) -> tuple[int, int, int]:
+
+        if not isinstance(item, slice):
+            raise TypeError("Expected a slice object.")
+
+        if not isinstance(axis, int) or isinstance(axis, bool):
+            raise TypeError("Axis must be an integer.")
+
+        if not 0 <= axis < len(self.shape):
+            raise IndexError(
+                f"Axis {axis} is out of range for a {len(self.shape)}D tensor."
             )
 
-        storage_index = self._storage_index(
-            indices,
-            allow_partial=True,
-        )
+        dim = self.shape[axis]
 
-        if len(indices) == len(self.shape):
-            return self.storage[storage_index]
+        start, stop, step = item.indices(dim)
 
-        remaining_shape = self.shape[len(indices):]
-        remaining_strides = self.strides[len(indices):]
+        if step < 0:
+            raise ValueError("Negative slicing steps are not supported yet.")
 
+        return start, stop, step
+    
+    def _get_integer_indexed(
+            self,
+            indices: tuple[int | slice, ...],
+        ) -> Any | "Tensor":
+            """Handle indexing expressions containing only integers.
+
+            Complete indexing returns a scalar, while partial indexing
+            returns a view over the remaining dimensions.
+
+            Args:
+                indices: A tuple of integer indices.
+
+            Returns:
+                Any: The selected scalar value.
+                Tensor: A view sharing the original storage.
+            """
+            if not is_integer_indices(indices):
+                raise TypeError("Integer indexing requires integer indices.")
+            
+            storage_index = self._storage_index(
+                indices,
+                allow_partial=True,
+            )
+
+            # Return the underlying value when every dimension is indexed.
+            if len(indices) == len(self.shape):
+                return self.storage[storage_index]
+
+            # Preserve the dimensions that were not explicitly indexed.
+            remaining_shape = self.shape[len(indices):]
+            remaining_strides = self.strides[len(indices):]
+
+            return self._create_view(
+                shape=remaining_shape,
+                strides=remaining_strides,
+                offset=storage_index,
+            )
+
+    def _get_sliced(
+        self,
+        indices: tuple[int | slice, ...],
+    ) -> Any | "Tensor":
+        """Handle indexing expressions containing at least one slice.
+
+        Integer indices remove their corresponding dimensions, while
+        slices preserve dimensions with updated shapes and strides.
+        Unspecified trailing dimensions remain unchanged.
+
+        The resulting tensor shares storage with the original tensor.
+
+        Args:
+            indices: A tuple containing integer indices and slices.
+
+        Returns:
+            Tensor: A view sharing the original storage.
+        """
+        new_shape = []
+        new_strides = []
+        new_offset = self.offset
+
+        for axis, item in enumerate(indices):
+            old_stride = self.strides[axis]
+
+            if isinstance(item, int):
+                # Integer indexing selects one element along this axis
+                # and removes the axis from the resulting view.
+                validate_indices(
+                    (item,),
+                    (self.shape[axis],),
+                )
+
+                new_offset += item * old_stride
+
+            else:
+                # Slice indexing preserves the axis but changes
+                # its logical size and physical storage stride.
+                start, stop, step = self._normalize_slice(
+                    item,
+                    axis,
+                )
+
+                new_offset += start * old_stride
+
+                new_shape.append(
+                    len(range(start, stop, step))
+                )
+
+                new_strides.append(
+                    old_stride * step
+                )
+
+        # Keep dimensions that were not explicitly indexed unchanged.
+        for axis in range(len(indices), len(self.shape)):
+            new_shape.append(self.shape[axis])
+            new_strides.append(self.strides[axis])
+
+        # Construct a view without copying the underlying storage.
         return self._create_view(
-            shape=remaining_shape,
-            strides=remaining_strides,
-            offset=storage_index,
+            shape=new_shape,
+            strides=new_strides,
+            offset=new_offset,
         )
+
+    def __getitem__(
+        self,
+        indices: int | slice | tuple[int | slice, ...],
+    ) -> Any | "Tensor":
+        """Retrieve an element or a view using integer or slice indexing.
+
+        Integer-only indexing follows the existing indexing behavior.
+        If at least one slice is provided, indexing is delegated to
+        the slicing implementation.
+
+        Args:
+            indices: An integer, slice, or tuple containing integers and slices.
+
+        Returns:
+            Any: A scalar value when all dimensions are indexed by integers.
+            Tensor: A view sharing the original storage otherwise.
+
+        Raises:
+            TypeError: If the indexing expression contains unsupported types.
+            IndexError: If the number of indices or an integer index is invalid.
+            ValueError: If the slice contains an unsupported step.
+        """
+        indices = validate_getitem_indices(
+            indices,
+            len(self.shape),
+        )
+
+        # Dispatch to the appropriate indexing implementation.
+        if any(isinstance(index, slice) for index in indices):
+            return self._get_sliced(indices)
+
+        return self._get_integer_indexed(indices)
 
     def __setitem__(
         self,
@@ -194,10 +332,3 @@ class Tensor:
 
         storage_index = self._storage_index(indices)
         self.storage[storage_index] = value
-
-    # def _normalize_slice(
-    #     self,
-    #     item: slice,
-    #     dim: int,
-    # ) -> tuple[int, int, int]:
-    #     ...
