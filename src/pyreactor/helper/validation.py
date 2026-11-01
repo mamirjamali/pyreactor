@@ -1,5 +1,6 @@
 
 from collections.abc import Iterable, Sequence
+from typing import TypeGuard
 
 
 def validate_shape(shape: Iterable[int]) -> tuple[int, ...]:
@@ -119,3 +120,46 @@ def validate_metadata(
             f"maximum index is {max_index}, "
             f"but storage length is {storage_length}."
         )
+
+def validate_getitem_indices(
+    indices: object,
+    ndim: int,
+) -> tuple[int | slice, ...]:
+
+    if isinstance(indices, (int, slice)) and not isinstance(indices, bool):
+        indices = (indices,)
+
+    elif not isinstance(indices, tuple):
+        raise TypeError(
+            "Indices must be an integer, slice, or tuple."
+        )
+
+    if len(indices) > ndim:
+        raise IndexError(
+            f"Too many indices: expected at most {ndim}, "
+            f"but received {len(indices)}."
+        )
+
+    for axis, index in enumerate(indices):
+        if isinstance(index, bool):
+            raise TypeError(
+                f"Index for axis {axis} cannot be a boolean."
+            )
+
+        if not isinstance(index, (int, slice)):
+            raise TypeError(
+                f"Index for axis {axis} must be an integer or slice."
+            )
+
+    return indices
+
+
+
+def is_integer_indices(
+    indices: tuple[int | slice, ...],
+) -> TypeGuard[tuple[int, ...]]:
+    """Check whether all indices are integers."""
+    return all(
+        isinstance(index, int) and not isinstance(index, bool)
+        for index in indices
+    )

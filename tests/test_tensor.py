@@ -68,6 +68,139 @@ def test_complete_index_returns_scalar():
     assert t[1, 2] == 6
 
 
+def test_slice_index_returns_view():
+    t = Tensor(list(range(24)), (2, 3, 4))
+
+    view = t[1:2]
+
+    assert view.shape == (1, 3, 4)
+    assert view.strides == (12, 4, 1)
+    assert view.offset == 12
+    assert view[0, 0, 0] == 12
+    assert view[0, 2, 3] == 23
+    assert view.storage is t.storage
+
+
+def test_slice_index_on_middle_axis():
+    t = Tensor(list(range(24)), (2, 3, 4))
+
+    view = t[:, 1:3]
+
+    assert view.shape == (2, 2, 4)
+    assert view.strides == (12, 4, 1)
+    assert view.offset == 4
+    assert view[0, 0, 0] == 4
+    assert view[1, 1, 3] == 23
+
+
+def test_slice_index_on_last_axis():
+    t = Tensor(list(range(24)), (2, 3, 4))
+
+    view = t[:, :, 1:3]
+
+    assert view.shape == (2, 3, 2)
+    assert view.strides == (12, 4, 1)
+    assert view.offset == 1
+    assert view[0, 0, 0] == 1
+    assert view[1, 2, 1] == 22
+
+
+def test_slice_index_with_step():
+    t = Tensor(list(range(24)), (2, 3, 4))
+
+    view = t[:, :, ::2]
+
+    assert view.shape == (2, 3, 2)
+    assert view.strides == (12, 4, 2)
+    assert view.offset == 0
+    assert view[0, 0, 1] == 2
+    assert view[1, 2, 1] == 22
+
+
+def test_mixed_integer_and_slice_indexing():
+    t = Tensor(list(range(24)), (2, 3, 4))
+
+    view = t[1, :, 1:3]
+
+    assert view.shape == (3, 2)
+    assert view.strides == (4, 1)
+    assert view.offset == 13
+    assert view[0, 0] == 13
+    assert view[1, 1] == 18
+    assert view[2, 1] == 22
+
+
+def test_multiple_slices_with_steps():
+    t = Tensor(list(range(24)), (2, 3, 4))
+
+    view = t[1, 0:3:2, 1:4:2]
+
+    assert view.shape == (2, 2)
+    assert view.strides == (8, 2)
+    assert view.offset == 13
+
+    assert view[0, 0] == 13
+    assert view[0, 1] == 15
+    assert view[1, 0] == 21
+    assert view[1, 1] == 23
+
+
+def test_partial_slice_preserves_unspecified_dimensions():
+    t = Tensor(list(range(24)), (2, 3, 4))
+
+    view = t[1, 1:3]
+
+    assert view.shape == (2, 4)
+    assert view.strides == (4, 1)
+    assert view.offset == 16
+    assert view[0, 0] == 16
+    assert view[1, 3] == 23
+
+
+def test_empty_slice_returns_empty_view():
+    t = Tensor(list(range(24)), (2, 3, 4))
+
+    view = t[1:1]
+
+    assert view.shape == (0, 3, 4)
+    assert view.strides == (12, 4, 1)
+    assert view.offset == 12
+    assert view.storage is t.storage
+
+
+def test_slice_view_shares_storage():
+    t = Tensor(list(range(24)), (2, 3, 4))
+
+    view = t[1, :, 1:3]
+
+    view[0, 0] = 999
+
+    assert t[1, 0, 1] == 999
+    assert view.storage is t.storage
+
+
+def test_slice_with_default_start_and_stop():
+    t = Tensor(list(range(6)), (6,))
+
+    view = t[2:]
+
+    assert view.shape == (4,)
+    assert view.strides == (1,)
+    assert view.offset == 2
+    assert [view[i] for i in range(4)] == [2, 3, 4, 5]
+
+
+def test_slice_with_non_unit_step_and_nonzero_start():
+    t = Tensor(list(range(10)), (10,))
+
+    view = t[1:9:3]
+
+    assert view.shape == (3,)
+    assert view.strides == (3,)
+    assert view.offset == 1
+    assert [view[i] for i in range(3)] == [1, 4, 7]
+
+
 def test_integer_index_assignment_updates_original_storage():
     t = Tensor([1, 2, 3, 4, 5, 6], (3, 2))
 
@@ -312,6 +445,33 @@ def test_non_tuple_non_integer_indices_are_rejected():
         _ = t[[1]]
 
 
+def test_slice_rejects_negative_step():
+    t = Tensor(list(range(5)), (5,))
+
+    with pytest.raises(ValueError):
+        _ = t[::-1]
+
+
+def test_slice_rejects_zero_step():
+    t = Tensor(list(range(5)), (5,))
+
+    with pytest.raises(ValueError):
+        _ = t[::0]
+
+
+def test_slice_rejects_unsupported_index_type():
+    t = Tensor(list(range(5)), (5,))
+
+    with pytest.raises(TypeError):
+        _ = t[1.5:4]
+
+
+def test_slice_rejects_too_many_indices():
+    t = Tensor(list(range(24)), (2, 3, 4))
+
+    with pytest.raises(IndexError):
+        _ = t[:, :, :, :]
+
 # ---------------------------------------------------------------------------
 # Scalar and empty tensors
 # ---------------------------------------------------------------------------
@@ -365,3 +525,14 @@ def test_empty_tensor_with_offset_at_storage_end():
 def test_empty_tensor_offset_beyond_storage_is_rejected():
     with pytest.raises(ValueError):
         Tensor([], (0, 3), offset=1)
+
+
+def test_slice_on_empty_tensor():
+    t = Tensor([], (0, 3))
+
+    view = t[:]
+
+    assert view.shape == (0, 3)
+    assert view.strides == (3, 1)
+    assert view.offset == 0
+    assert view.storage is t.storage
