@@ -290,6 +290,51 @@ def test_slice_assignment_with_non_iterable_value():
 
     with pytest.raises(TypeError):
         t[1:4] = 100
+
+
+def test_negative_index_returns_last_element():
+    t = Tensor([10, 20, 30, 40], (4,))
+    assert t[-1] == 40
+
+
+def test_negative_index_returns_second_last_element():
+    t = Tensor([10, 20, 30, 40], (4,))
+    assert t[-2] == 30
+
+
+def test_negative_index_in_multidimensional_tensor():
+    t = Tensor(list(range(24)), (2, 3, 4))
+    assert t[-1, -1, -1] == 23
+
+
+def test_negative_partial_index_returns_view():
+    t = Tensor(list(range(24)), (2, 3, 4))
+    view = t[-1, -1]
+
+    assert view.shape == (4,)
+    assert view.offset == 20
+    assert view[0] == 20
+
+
+def test_negative_index_assignment():
+    t = Tensor([10, 20, 30, 40], (4,))
+    t[-1] = 999
+
+    assert t.storage == [10, 20, 30, 999]
+
+
+def test_negative_index_out_of_bounds():
+    t = Tensor([10, 20, 30, 40], (4,))
+
+    with pytest.raises(IndexError):
+        _ = t[-5]
+
+
+def test_negative_index_on_empty_dimension():
+    t = Tensor([], (0,))
+
+    with pytest.raises(IndexError):
+        _ = t[-1]
 # ---------------------------------------------------------------------------
 # Transposition
 # ---------------------------------------------------------------------------
@@ -488,7 +533,7 @@ def test_out_of_bounds_indices_are_rejected():
         _ = t[2, 0]
 
     with pytest.raises(IndexError):
-        _ = t[0, -1]
+        _ = t[0, -3]
 
 
 def test_boolean_indices_are_rejected():
