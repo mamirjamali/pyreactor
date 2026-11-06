@@ -13,6 +13,7 @@ from pyreactor.helper.validation import (
     is_integer_indices,
 )
 
+import math
 
 class Tensor:
     """A strided tensor view over a flat mutable storage sequence.
@@ -279,7 +280,36 @@ class Tensor:
             strides=new_strides,
             offset=new_offset,
         )
+    
+    def _set_integer_indexed(
+        self,
+        indices: tuple[int, ...],
+        value: Any,
+    ) -> None:
+        if len(indices) != len(self.shape):
+            raise IndexError("Assignment requires complete indices.")
 
+        storage_index = self._storage_index(indices)
+        self.storage[storage_index] = value
+        
+    def _set_sliced(
+        self,
+        indices: tuple[int | slice, ...],
+        value: Any,
+    ) -> None:
+        view = self._get_sliced(indices)
+        expected_size = math.prod(view.shape)
+        values = list(value)
+
+        if len(values) != expected_size:
+            raise ValueError(
+                f"Expected {expected_size} values, got {len(values)}."
+            )
+
+        for i, coordinate in enumerate(iter_coordinates(view.shape)):
+            storage_index = view._storage_index(coordinate)
+            self.storage[storage_index] = values[i]
+        
     def __getitem__(
         self,
         indices: int | slice | tuple[int | slice, ...],
@@ -315,20 +345,15 @@ class Tensor:
 
     def __setitem__(
         self,
-        indices: int | tuple[int, ...],
+        indices: int | slice | tuple[int | slice, ...],
         value: Any,
     ) -> None:
-        """Assign a scalar using complete tensor coordinates.
+        indices = validate_getitem_indices(indices, len(self.shape))
 
-        Partial-index assignment is not supported yet. Select a view first
-        when you want to modify an element inside a sub-tensor.
-        """
-        if isinstance(indices, int) and not isinstance(indices, bool):
-            indices = (indices,)
-        elif not isinstance(indices, tuple):
-            raise TypeError(
-                "Indices must be an integer or a tuple of integers."
-            )
+        if any(isinstance(index, slice) for index in indices):
+            self._set_sliced(indices, value)
+            return
 
-        storage_index = self._storage_index(indices)
-        self.storage[storage_index] = value
+        self._set_integer_indexed(indices, value)
+
+
