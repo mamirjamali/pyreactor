@@ -220,6 +220,76 @@ def test_partial_index_assignment_is_not_supported():
         t[1] = 99
 
 
+def test_slice_assignment():
+    t = Tensor(list(range(6)), (6,))
+
+    t[1:4] = [10, 20, 30]
+
+    assert t.storage == [0, 10, 20, 30, 4, 5]
+
+
+def test_slice_assignment_with_step():
+    t = Tensor(list(range(6)), (6,))
+
+    t[::2] = [10, 20, 30]
+
+    assert t.storage == [10, 1, 20, 3, 30, 5]
+
+
+def test_slice_assignment_with_nonzero_start_and_step():
+    t = Tensor(list(range(10)), (10,))
+
+    t[1:9:3] = [100, 200, 300]
+
+    assert t.storage == [0, 100, 2, 3, 200, 5, 6, 300, 8, 9]
+
+
+def test_slice_assignment_updates_original_storage():
+    t = Tensor(list(range(24)), (2, 3, 4))
+
+    view = t[1, :, 1:3]
+    view[:, :] = [10, 20, 30, 40, 50, 60]
+
+    assert t[1, 0, 1] == 10
+    assert t[1, 0, 2] == 20
+    assert t[1, 1, 1] == 30
+    assert t[1, 1, 2] == 40
+    assert t[1, 2, 1] == 50
+    assert t[1, 2, 2] == 60
+
+
+def test_mixed_integer_and_slice_assignment():
+    t = Tensor(list(range(24)), (2, 3, 4))
+
+    t[1, :, 1:3] = [100, 200, 300, 400, 500, 600]
+
+    assert t[1, 0, 1] == 100
+    assert t[1, 0, 2] == 200
+    assert t[1, 1, 1] == 300
+    assert t[1, 1, 2] == 400
+    assert t[1, 2, 1] == 500
+    assert t[1, 2, 2] == 600
+
+
+def test_slice_assignment_with_wrong_number_of_values():
+    t = Tensor(list(range(6)), (6,))
+
+    with pytest.raises(ValueError):
+        t[1:4] = [10, 20]
+
+
+def test_slice_assignment_with_too_many_values():
+    t = Tensor(list(range(6)), (6,))
+
+    with pytest.raises(ValueError):
+        t[1:3] = [10, 20, 30]
+
+
+def test_slice_assignment_with_non_iterable_value():
+    t = Tensor(list(range(6)), (6,))
+
+    with pytest.raises(TypeError):
+        t[1:4] = 100
 # ---------------------------------------------------------------------------
 # Transposition
 # ---------------------------------------------------------------------------
