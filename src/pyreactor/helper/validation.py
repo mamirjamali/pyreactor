@@ -70,8 +70,9 @@ def validate_indices(
     shape: Sequence[int],
     *,
     allow_partial: bool = False,
-) -> None:
-    """Validate index types, dimensionality, and bounds."""
+) -> tuple[int, ...]:
+    """Validate and normalize integer indices."""
+
     if allow_partial:
         if len(indices) > len(shape):
             raise IndexError(
@@ -83,17 +84,26 @@ def validate_indices(
             f"Expected {len(shape)} indices, but received {len(indices)}."
         )
 
+    normalized_indices = []
+
     for axis, (index, dim) in enumerate(zip(indices, shape)):
         if not isinstance(index, int) or isinstance(index, bool):
             raise TypeError(
                 f"Index for axis {axis} must be an integer."
             )
 
+        if index < 0:
+            index += dim
+
         if index < 0 or index >= dim:
             raise IndexError(
                 f"Index {index} is out of bounds for axis {axis} "
                 f"with size {dim}."
             )
+
+        normalized_indices.append(index)
+
+    return tuple(normalized_indices)
 
 
 def validate_metadata(
@@ -120,6 +130,7 @@ def validate_metadata(
             f"maximum index is {max_index}, "
             f"but storage length is {storage_length}."
         )
+
 
 def validate_getitem_indices(
     indices: object,
@@ -152,7 +163,6 @@ def validate_getitem_indices(
             )
 
     return indices
-
 
 
 def is_integer_indices(

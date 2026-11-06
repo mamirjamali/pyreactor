@@ -75,7 +75,7 @@ class Tensor:
         allow_partial: bool = False,
     ) -> int:
         """Translate logical coordinates into a physical storage index."""
-        validate_indices(
+        indices = validate_indices(
             indices,
             self.shape,
             allow_partial=allow_partial,
@@ -244,12 +244,12 @@ class Tensor:
             if isinstance(item, int):
                 # Integer indexing selects one element along this axis
                 # and removes the axis from the resulting view.
-                validate_indices(
+                normalized_item = validate_indices(
                     (item,),
                     (self.shape[axis],),
-                )
+                )[0]
 
-                new_offset += item * old_stride
+                new_offset += normalized_item * old_stride
 
             else:
                 # Slice indexing preserves the axis but changes
