@@ -380,6 +380,48 @@ def test_reverse_slice_updates_original_storage():
     view[0] = 999
 
     assert t[3] == 999
+
+# ---------------------------------------------------------------------------
+# Ellipsis
+# ---------------------------------------------------------------------------
+
+def test_ellipsis_at_end():
+    t = Tensor(list(range(24)), (2, 3, 4))
+
+    result = t[..., 0]
+
+    assert result.shape == (2, 3)
+
+
+def test_ellipsis_at_start():
+    t = Tensor(list(range(24)), (2, 3, 4))
+
+    result = t[0, ...]
+
+    assert result.shape == (3, 4)
+
+
+def test_ellipsis_in_middle():
+    t = Tensor(list(range(24)), (2, 3, 4))
+
+    result = t[1, ..., 2]
+
+    assert result.shape == (3,)
+
+
+def test_ellipsis_alone():
+    t = Tensor(list(range(24)), (2, 3, 4))
+
+    result = t[...]
+
+    assert result.shape == (2, 3, 4)
+
+
+def test_multiple_ellipsis_raises():
+    t = Tensor(list(range(24)), (2, 3, 4))
+
+    with pytest.raises(IndexError):
+        t[..., ..., 0]
 # ---------------------------------------------------------------------------
 # Transposition
 # ---------------------------------------------------------------------------
