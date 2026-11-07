@@ -214,13 +214,6 @@ def test_integer_index_assignment_updates_original_storage():
     assert row.storage is t.storage
 
 
-def test_partial_index_assignment_is_not_supported():
-    t = Tensor([1, 2, 3, 4, 5, 6], (3, 2))
-
-    with pytest.raises(IndexError):
-        t[1] = 99
-
-
 def test_slice_assignment():
     t = Tensor(list(range(6)), (6,))
 
@@ -286,11 +279,12 @@ def test_slice_assignment_with_too_many_values():
         t[1:3] = [10, 20, 30]
 
 
-def test_slice_assignment_with_non_iterable_value():
+def test_slice_assignment_with_scalar_value():
     t = Tensor(list(range(6)), (6,))
 
-    with pytest.raises(TypeError):
-        t[1:4] = 100
+    t[1:3] = 99
+
+    assert t.storage == [0, 99, 99, 3, 4, 5]
 
 
 def test_negative_index_returns_last_element():
@@ -382,6 +376,21 @@ def test_reverse_slice_updates_original_storage():
 
     assert t[3] == 999
 
+
+def test_partial_scalar_assignment():
+    t = Tensor([1, 2, 3, 4, 5, 6], (3, 2))
+
+    t[1] = 99
+
+    assert t.storage == [1, 2, 99, 99, 5, 6]
+
+
+def test_partial_iterable_assignment():
+    t = Tensor([1, 2, 3, 4, 5, 6], (3, 2))
+
+    t[1] = [10, 20]
+
+    assert t.storage == [1, 2, 10, 20, 5, 6]
 # ---------------------------------------------------------------------------
 # Ellipsis
 # ---------------------------------------------------------------------------
@@ -605,13 +614,6 @@ def test_too_many_indices_are_rejected():
 
     with pytest.raises(IndexError):
         _ = t[0, 1, 0]
-
-
-def test_too_few_indices_for_assignment_are_rejected():
-    t = Tensor([1, 2, 3, 4], (2, 2))
-
-    with pytest.raises(IndexError):
-        t[0] = 10
 
 
 def test_out_of_bounds_indices_are_rejected():

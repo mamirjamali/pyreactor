@@ -297,12 +297,16 @@ class Tensor:
     ) -> None:
         view = self._get_sliced(indices)
         expected_size = math.prod(view.shape)
-        values = list(value)
 
-        if len(values) != expected_size:
-            raise ValueError(
-                f"Expected {expected_size} values, got {len(values)}."
-            )
+        if isinstance(value, (int, float, bool)):
+            values = [value] * expected_size
+        else:
+            values = list(value)
+
+            if len(values) != expected_size:
+                raise ValueError(
+                    f"Expected {expected_size} values, got {len(values)}."
+                )
 
         for i, coordinate in enumerate(iter_coordinates(view.shape)):
             storage_index = view._storage_index(coordinate)
@@ -346,21 +350,6 @@ class Tensor:
         indices: int | slice | tuple[int | slice, ...],
         value: Any,
     ) -> None:
-
-        if isinstance(indices, (int, slice)):
-            indices = (indices,)
-
-        elif not isinstance(indices, tuple):
-            raise TypeError(
-                "Indices must be an integer, slice, or tuple."
-            )
-
-        if len(indices) != len(self.shape):
-            raise IndexError(
-                f"Expected {len(self.shape)} indices, "
-                f"but received {len(indices)}."
-            )
-        
         indices = prepare_setitem_indices(indices, len(self.shape))
 
         if any(isinstance(index, slice) for index in indices):
