@@ -173,9 +173,6 @@ class Tensor:
 
         start, stop, step = item.indices(dim)
 
-        if step < 0:
-            raise ValueError("Negative slicing steps are not supported yet.")
-
         return start, stop, step
     
     def _get_integer_indexed(
@@ -348,6 +345,21 @@ class Tensor:
         indices: int | slice | tuple[int | slice, ...],
         value: Any,
     ) -> None:
+
+        if isinstance(indices, (int, slice)):
+            indices = (indices,)
+
+        elif not isinstance(indices, tuple):
+            raise TypeError(
+                "Indices must be an integer, slice, or tuple."
+            )
+
+        if len(indices) != len(self.shape):
+            raise IndexError(
+                f"Expected {len(self.shape)} indices, "
+                f"but received {len(indices)}."
+            )
+
         indices = validate_getitem_indices(indices, len(self.shape))
 
         if any(isinstance(index, slice) for index in indices):
