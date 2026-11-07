@@ -43,10 +43,6 @@ def validate_strides(
             raise TypeError(
                 f"Stride at axis {axis} must be an integer."
             )
-        if stride < 0:
-            raise ValueError(
-                f"Stride at axis {axis} cannot be negative."
-            )
 
     return stride_values
 
@@ -113,20 +109,28 @@ def validate_metadata(
     offset: int,
 ) -> None:
     """Ensure tensor metadata addresses only valid storage locations."""
+
     validate_offset(offset, storage_length)
 
     # Empty tensors contain no elements to address.
     if any(dim == 0 for dim in shape):
         return
 
-    # A scalar has shape (), but still occupies one storage element.
+    min_index = offset
     max_index = offset
-    for dim, stride in zip(shape, strides):
-        max_index += (dim - 1) * stride
 
-    if max_index >= storage_length:
+    for dim, stride in zip(shape, strides):
+        displacement = (dim - 1) * stride
+
+        if displacement < 0:
+            min_index += displacement
+        else:
+            max_index += displacement
+
+    if min_index < 0 or max_index >= storage_length:
         raise ValueError(
             f"Tensor metadata exceeds storage bounds: "
+            f"minimum index is {min_index}, "
             f"maximum index is {max_index}, "
             f"but storage length is {storage_length}."
         )

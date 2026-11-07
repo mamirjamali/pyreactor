@@ -173,9 +173,6 @@ class Tensor:
 
         start, stop, step = item.indices(dim)
 
-        if step < 0:
-            raise ValueError("Negative slicing steps are not supported yet.")
-
         return start, stop, step
     
     def _get_integer_indexed(

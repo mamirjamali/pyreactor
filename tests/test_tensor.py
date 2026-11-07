@@ -335,6 +335,51 @@ def test_negative_index_on_empty_dimension():
 
     with pytest.raises(IndexError):
         _ = t[-1]
+
+
+def test_reverse_slice():
+    t = Tensor([10, 20, 30, 40, 50], (5,))
+
+    view = t[::-1]
+
+    assert view.shape == (5,)
+    assert view.strides == (-1,)
+    assert view.offset == 4
+
+    assert [view[i] for i in range(5)] == [50, 40, 30, 20, 10]
+
+
+def test_negative_step_slice():
+    t = Tensor([10, 20, 30, 40, 50], (5,))
+
+    view = t[4:1:-1]
+
+    assert view.shape == (3,)
+    assert view.strides == (-1,)
+    assert view.offset == 4
+
+    assert [view[i] for i in range(3)] == [50, 40, 30]
+
+
+def test_negative_step_with_larger_step():
+    t = Tensor(list(range(10)), (10,))
+
+    view = t[::-2]
+
+    assert view.shape == (5,)
+    assert view.strides == (-2,)
+    assert view.offset == 9
+
+    assert [view[i] for i in range(5)] == [9, 7, 5, 3, 1]
+
+
+def test_reverse_slice_updates_original_storage():
+    t = Tensor([10, 20, 30, 40], (4,))
+
+    view = t[::-1]
+    view[0] = 999
+
+    assert t[3] == 999
 # ---------------------------------------------------------------------------
 # Transposition
 # ---------------------------------------------------------------------------
@@ -560,11 +605,14 @@ def test_non_tuple_non_integer_indices_are_rejected():
         _ = t[[1]]
 
 
-def test_slice_rejects_negative_step():
+def test_slice_accepts_negative_step():
     t = Tensor(list(range(5)), (5,))
 
-    with pytest.raises(ValueError):
-        _ = t[::-1]
+    view = t[::-1]
+
+    assert view.shape == (5,)
+    assert view.strides == (-1,)
+    assert view.offset == 4
 
 
 def test_slice_rejects_zero_step():
