@@ -1,6 +1,7 @@
 import pytest
 
 from pyreactor.tensor import Tensor
+from pyreactor.helper.validation import *
 
 
 # ---------------------------------------------------------------------------
@@ -676,6 +677,55 @@ def test_slice_rejects_too_many_indices():
 
     with pytest.raises(IndexError):
         _ = t[:, :, :, :]
+
+
+def test_normalize_single_index():
+    assert normalize_indices(1) == (1,)
+
+
+def test_normalize_ellipsis():
+    assert normalize_indices(Ellipsis) == (Ellipsis,)
+
+
+def test_normalize_tuple():
+    assert normalize_indices((1, slice(None))) == (1, slice(None))
+
+
+def test_validate_multiple_ellipsis():
+    with pytest.raises(IndexError):
+        validate_indices_syntax((Ellipsis, Ellipsis), 3)
+
+
+def test_validate_too_many_indices():
+    with pytest.raises(IndexError):
+        validate_indices_syntax((1, 2, 3, 4), 3)
+
+
+def test_expand_ellipsis():
+    result = expand_ellipsis((1, Ellipsis, 2), 4)
+    assert result == (1, slice(None), slice(None), 2)
+
+
+def test_expand_missing_dimensions():
+    result = expand_missing_dimensions((1,), 3)
+    assert result == (1, slice(None), slice(None))
+
+
+def test_expand_missing_dimensions_no_change():
+    result = expand_missing_dimensions((1, 2), 2)
+    assert result == (1, 2)
+
+
+def test_validate_multiple_ellipsis():
+    with pytest.raises(IndexError):
+        validate_indices_syntax((Ellipsis, Ellipsis), 3)
+
+        
+def test_multiple_ellipsis_raises():
+    t = Tensor(list(range(24)), (2, 3, 4))
+
+    with pytest.raises(IndexError):
+        t[..., ..., 0]
 
 # ---------------------------------------------------------------------------
 # Scalar and empty tensors

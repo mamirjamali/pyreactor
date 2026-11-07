@@ -9,8 +9,9 @@ from pyreactor.helper.validation import (
     validate_metadata,
     validate_shape,
     validate_strides,
-    validate_getitem_indices,
     is_integer_indices,
+    prepare_getitem_indices,
+    prepare_setitem_indices,
 )
 
 import math
@@ -329,7 +330,7 @@ class Tensor:
             IndexError: If the number of indices or an integer index is invalid.
             ValueError: If the slice contains an unsupported step.
         """
-        indices = validate_getitem_indices(
+        indices = prepare_getitem_indices(
             indices,
             len(self.shape),
         )
@@ -359,8 +360,8 @@ class Tensor:
                 f"Expected {len(self.shape)} indices, "
                 f"but received {len(indices)}."
             )
-
-        indices = validate_getitem_indices(indices, len(self.shape))
+        
+        indices = prepare_setitem_indices(indices, len(self.shape))
 
         if any(isinstance(index, slice) for index in indices):
             self._set_sliced(indices, value)
