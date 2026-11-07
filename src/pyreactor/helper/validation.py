@@ -146,7 +146,7 @@ def validate_getitem_indices(
         and not isinstance(indices, bool)
     ):
         indices = (indices,)
-        
+
     elif not isinstance(indices, tuple):
         raise TypeError(
             "Indices must be an integer, slice, or tuple."
@@ -182,32 +182,112 @@ def expand_ellipsis(
     indices: tuple,
     ndim: int,
 ) -> tuple:
-    """Expand Ellipsis and fill missing dimensions with full slices."""
+    """Expand Ellipsis into the required number of full slices."""
+
+    if Ellipsis not in indices:
+        return indices
+
+    missing_dims = ndim - (len(indices) - 1)
+
+    expanded = []
+
+    for index in indices:
+        if index is Ellipsis:
+            expanded.extend([slice(None)] * missing_dims)
+        else:
+            expanded.append(index)
+
+    return tuple(expanded)
+
+
+def normalize_indices(indices: object) -> tuple:
+    """Normalize indexing input into a tuple."""
+
+    if isinstance(indices, (int, slice, type(Ellipsis))):
+        return (indices,)
+
+    if not isinstance(indices, tuple):
+        raise TypeError(
+            "Indices must be an integer, slice, Ellipsis, or tuple."
+        )
+
+    return indices
+
+
+def validate_indices_syntax(
+    indices: tuple,
+    ndim: int,
+) -> None:
+    """Validate indexing syntax without expanding dimensions."""
 
     ellipsis_count = sum(index is Ellipsis for index in indices)
 
     if ellipsis_count > 1:
         raise IndexError("An index can only have one ellipsis.")
 
-    if ellipsis_count == 1:
-        missing_dims = ndim - (len(indices) - 1)
+    effective_count = len(indices) - ellipsis_count
 
-        if missing_dims < 0:
-            raise IndexError("Too many indices for tensor.")
-
-        expanded = []
-
-        for index in indices:
-            if index is Ellipsis:
-                expanded.extend([slice(None)] * missing_dims)
-            else:
-                expanded.append(index)
-
-        return tuple(expanded)
-
-    if len(indices) > ndim:
+    if effective_count > ndim:
         raise IndexError("Too many indices for tensor.")
+
+    for axis, index in enumerate(indices):
+        if isinstance(index, bool):
+            raise TypeError(
+                f"Index for axis {axis} cannot be a boolean."
+            )
+
+        if not isinstance(index, (int, slice, type(Ellipsis))):
+            raise TypeError(
+                f"Index for axis {axis} must be an integer, slice, or Ellipsis."
+            )
+
+
+def expand_missing_dimensions(
+    indices: tuple,
+    ndim: int,
+) -> tuple:
+    """Fill missing dimensions with full slices."""
 
     missing_dims = ndim - len(indices)
 
+    if missing_dims < 0:
+        raise IndexError("Too many indices for tensor.")
+
     return indices + (slice(None),) * missing_dims
+
+
+def prepare_getitem_indices(
+    indices: object,
+    ndim: int,
+) -> tuple[int | slice, ...]:
+    """Normalize, validate, and expand indexing input."""
+
+    indices = normalize_indices(indices)
+
+    validate_indices_syntax(indices, ndim)
+
+    indices = expand_ellipsis(indices, ndim)
+
+    indices = expand_missing_dimensions(indices, ndim)
+
+    return indices
+
+
+def prepare_setitem_indices(
+    indices: object,
+    ndim: int,
+) -> tuple[int | slice, ...]:
+    """Normalize, validate, and expand assignment indices."""
+
+    indices = normalize_indices(indices)
+
+    validate_indices_syntax(indices, ndim)
+
+    indices = expand_ellipsis(indices, ndim)
+
+    if len(indices) != ndim:
+        raise IndexError(
+            f"Expected {ndim} indices, but received {len(indices)}."
+        )
+
+    return indices
