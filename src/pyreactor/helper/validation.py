@@ -284,10 +284,7 @@ def prepare_setitem_indices(
     validate_indices_syntax(indices, ndim)
 
     indices = expand_ellipsis(indices, ndim)
-
-    if len(indices) != ndim:
-        raise IndexError(
-            f"Expected {ndim} indices, but received {len(indices)}."
-        )
+    
+    indices = expand_missing_dimensions(indices, ndim)
 
     return indices
