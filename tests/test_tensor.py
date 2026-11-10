@@ -722,13 +722,38 @@ def test_validate_multiple_ellipsis():
     with pytest.raises(IndexError):
         validate_indices_syntax((Ellipsis, Ellipsis), 3)
 
-        
-def test_multiple_ellipsis_raises():
-    t = Tensor(list(range(24)), (2, 3, 4))
 
-    with pytest.raises(IndexError):
-        t[..., ..., 0]
+def test_new_axis_at_beginning():
+    t = Tensor([1, 2, 3, 4, 5, 6], (2, 3))
 
+    result = t[None, :, :]
+
+    assert result.shape == (1, 2, 3)
+    assert result.storage is t.storage
+
+
+def test_new_axis_in_middle():
+    t = Tensor([1, 2, 3, 4, 5, 6], (2, 3))
+
+    result = t[:, None, :]
+
+    assert result.shape == (2, 1, 3)
+
+
+def test_new_axis_at_end():
+    t = Tensor([1, 2, 3, 4, 5, 6], (2, 3))
+
+    result = t[:, :, None]
+
+    assert result.shape == (2, 3, 1)
+
+
+def test_new_axis_with_integer_index():
+    t = Tensor([1, 2, 3, 4, 5, 6], (2, 3))
+
+    result = t[None, 1]
+
+    assert result.shape == (1, 3)
 # ---------------------------------------------------------------------------
 # Scalar and empty tensors
 # ---------------------------------------------------------------------------

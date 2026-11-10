@@ -224,13 +224,19 @@ def validate_indices_syntax(
 
     if ellipsis_count > 1:
         raise IndexError("An index can only have one ellipsis.")
-
-    effective_count = len(indices) - ellipsis_count
+    
+    effective_count = sum(
+        index is not None and index is not Ellipsis
+        for index in indices
+    )
 
     if effective_count > ndim:
         raise IndexError("Too many indices for tensor.")
 
     for axis, index in enumerate(indices):
+        if index == None:
+            continue
+
         if isinstance(index, bool):
             raise TypeError(
                 f"Index for axis {axis} cannot be a boolean."
@@ -247,8 +253,8 @@ def expand_missing_dimensions(
     ndim: int,
 ) -> tuple:
     """Fill missing dimensions with full slices."""
-
-    missing_dims = ndim - len(indices)
+    consumed_dims = sum(index is not None for index in indices)
+    missing_dims = ndim - consumed_dims
 
     if missing_dims < 0:
         raise IndexError("Too many indices for tensor.")
