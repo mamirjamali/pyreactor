@@ -136,6 +136,32 @@ class Tensor:
             offset=self.offset,
         )
 
+    def reshape(self, *shape):
+        new_shape = tuple(shape)
+
+        if math.prod(new_shape) != math.prod(self.shape):
+            raise ValueError(
+                "New shape must have the same number of elements."
+            )
+
+        if not self.is_contiguous():
+            raise ValueError(
+                "Cannot reshape a non-contiguous tensor yet."
+            )
+
+        new_strides = [1] * len(new_shape)
+
+        for axis in range(len(new_shape) - 2, -1, -1):
+            new_strides[axis] = (
+                new_strides[axis + 1] * new_shape[axis + 1]
+            )
+
+        return self._create_view(
+            shape=new_shape,
+            strides=tuple(new_strides),
+            offset=self.offset,
+        )
+
     def is_contiguous(self) -> bool:
         """Check whether strides match the standard row-major layout."""
         return self.strides == self._compute_contiguous_strides(self.shape)
