@@ -216,32 +216,28 @@ class Tensor:
 
     def _get_sliced(
         self,
-        indices: tuple[int | slice, ...],
+        indices: tuple[int | slice | None, ...],
     ) -> Any | "Tensor":
-        """Handle indexing expressions containing at least one slice.
 
-        Integer indices remove their corresponding dimensions, while
-        slices preserve dimensions with updated shapes and strides.
-        Unspecified trailing dimensions remain unchanged.
-
-        The resulting tensor shares storage with the original tensor.
-
-        Args:
-            indices: A tuple containing integer indices and slices.
-
-        Returns:
-            Tensor: A view sharing the original storage.
-        """
         new_shape = []
         new_strides = []
         new_offset = self.offset
 
-        for axis, item in enumerate(indices):
+        axis = 0
+
+        for item in indices:
+
+            if item is None:
+                new_shape.append(1)
+
+                # A new axis has no effect on storage.
+                new_strides.append(0)
+
+                continue
+
             old_stride = self.strides[axis]
 
             if isinstance(item, int):
-                # Integer indexing selects one element along this axis
-                # and removes the axis from the resulting view.
                 normalized_item = validate_indices(
                     (item,),
                     (self.shape[axis],),
@@ -249,9 +245,7 @@ class Tensor:
 
                 new_offset += normalized_item * old_stride
 
-            else:
-                # Slice indexing preserves the axis but changes
-                # its logical size and physical storage stride.
+            elif isinstance(item, slice):
                 start, stop, step = self._normalize_slice(
                     item,
                     axis,
@@ -259,20 +253,16 @@ class Tensor:
 
                 new_offset += start * old_stride
 
-                new_shape.append(
-                    len(range(start, stop, step))
-                )
+                new_shape.append(len(range(start, stop, step)))
+                new_strides.append(old_stride * step)
 
-                new_strides.append(
-                    old_stride * step
-                )
+            axis += 1
 
-        # Keep dimensions that were not explicitly indexed unchanged.
-        for axis in range(len(indices), len(self.shape)):
-            new_shape.append(self.shape[axis])
-            new_strides.append(self.strides[axis])
+        # Preserve unspecified trailing dimensions.
+        for remaining_axis in range(axis, len(self.shape)):
+            new_shape.append(self.shape[remaining_axis])
+            new_strides.append(self.strides[remaining_axis])
 
-        # Construct a view without copying the underlying storage.
         return self._create_view(
             shape=new_shape,
             strides=new_strides,
@@ -347,15 +337,15 @@ class Tensor:
 
     def __setitem__(
         self,
-        indices: int | slice | tuple[int | slice, ...],
+        indices: int | slice | tuple[int | slice | None, ...],
         value: Any,
     ) -> None:
         indices = prepare_setitem_indices(indices, len(self.shape))
 
-        if any(isinstance(index, slice) for index in indices):
+        if any(
+            isinstance(index, (slice, type(None)))
+            for index in indices):
             self._set_sliced(indices, value)
             return
 
         self._set_integer_indexed(indices, value)
-
-
