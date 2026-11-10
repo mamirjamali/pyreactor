@@ -178,16 +178,16 @@ def is_integer_indices(
     )
 
 
-def expand_ellipsis(
-    indices: tuple,
-    ndim: int,
-) -> tuple:
-    """Expand Ellipsis into the required number of full slices."""
-
+def expand_ellipsis(indices, ndim):
     if Ellipsis not in indices:
         return indices
 
-    missing_dims = ndim - (len(indices) - 1)
+    consumed_dims = sum(
+        index is not None and index is not Ellipsis
+        for index in indices
+    )
+
+    missing_dims = ndim - consumed_dims
 
     expanded = []
 
@@ -253,6 +253,7 @@ def expand_missing_dimensions(
     ndim: int,
 ) -> tuple:
     """Fill missing dimensions with full slices."""
+
     consumed_dims = sum(index is not None for index in indices)
     missing_dims = ndim - consumed_dims
 

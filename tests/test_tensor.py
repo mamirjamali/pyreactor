@@ -754,6 +754,43 @@ def test_new_axis_with_integer_index():
     result = t[None, 1]
 
     assert result.shape == (1, 3)
+
+
+def test_new_axis_with_ellipsis_at_beginning():
+    t = Tensor(list(range(24)), (2, 3, 4))
+
+    result = t[None, ..., 1]
+
+    assert result.shape == (1, 2, 3)
+    assert result.strides == (0, 12, 4)
+    assert result.storage is t.storage
+
+
+def test_ellipsis_with_new_axis_at_end():
+    t = Tensor(list(range(24)), (2, 3, 4))
+
+    result = t[..., None]
+
+    assert result.shape == (2, 3, 4, 1)
+    assert result.strides == (12, 4, 1, 0)
+
+
+def test_new_axis_on_both_sides_of_ellipsis():
+    t = Tensor(list(range(24)), (2, 3, 4))
+
+    result = t[None, ..., None]
+
+    assert result.shape == (1, 2, 3, 4, 1)
+    assert result.strides == (0, 12, 4, 1, 0)
+
+
+def test_new_axis_with_ellipsis_in_middle():
+    t = Tensor(list(range(24)), (2, 3, 4))
+
+    result = t[:, None, ..., 1]
+
+    assert result.shape == (2, 1, 3)
+    assert result.strides == (12, 0, 4)
 # ---------------------------------------------------------------------------
 # Scalar and empty tensors
 # ---------------------------------------------------------------------------
