@@ -391,6 +391,42 @@ def test_partial_iterable_assignment():
     t[1] = [10, 20]
 
     assert t.storage == [1, 2, 10, 20, 5, 6]
+
+
+def test_reshape_contiguous_tensor():
+    t = Tensor(list(range(6)), (2, 3))
+
+    result = t.reshape(3, 2)
+
+    assert result.shape == (3, 2)
+    assert result.strides == (2, 1)
+    assert result.storage is t.storage
+
+
+def test_reshape_preserves_offset():
+    t = Tensor(list(range(12)), (3, 4))
+    view = t[1:, :]
+
+    result = view.reshape(4, 2)
+
+    assert result.shape == (4, 2)
+    assert result.offset == 4
+    assert result.storage is t.storage
+
+
+def test_reshape_different_number_of_elements():
+    t = Tensor(list(range(6)), (2, 3))
+
+    with pytest.raises(ValueError):
+        t.reshape(4, 2)
+
+
+def test_reshape_non_contiguous_tensor():
+    t = Tensor(list(range(6)), (2, 3))
+    transposed = t.transpose(0, 1)
+
+    with pytest.raises(ValueError):
+        transposed.reshape(6)
 # ---------------------------------------------------------------------------
 # Ellipsis
 # ---------------------------------------------------------------------------
