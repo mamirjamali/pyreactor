@@ -427,6 +427,47 @@ def test_reshape_non_contiguous_tensor():
 
     with pytest.raises(ValueError):
         transposed.reshape(6)
+
+
+def test_reshape_infer_one_dimension():
+    t = Tensor(list(range(12)), (3, 4))
+
+    result = t.reshape(3, -1)
+
+    assert result.shape == (3, 4)
+    assert result.strides == (4, 1)
+
+
+def test_reshape_infer_flattened_dimension():
+    t = Tensor(list(range(12)), (3, 4))
+
+    result = t.reshape(-1)
+
+    assert result.shape == (12,)
+    assert result.strides == (1,)
+
+
+def test_reshape_infer_multiple_dimensions():
+    t = Tensor(list(range(24)), (2, 3, 4))
+
+    result = t.reshape(4, -1)
+
+    assert result.shape == (4, 6)
+    assert result.strides == (6, 1)
+
+
+def test_reshape_multiple_inferred_dimensions():
+    t = Tensor(list(range(12)), (3, 4))
+
+    with pytest.raises(ValueError):
+        t.reshape(-1, -1)
+
+
+def test_reshape_invalid_inferred_dimension():
+    t = Tensor(list(range(12)), (3, 4))
+
+    with pytest.raises(ValueError):
+        t.reshape(5, -1)
 # ---------------------------------------------------------------------------
 # Ellipsis
 # ---------------------------------------------------------------------------
