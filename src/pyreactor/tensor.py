@@ -137,11 +137,58 @@ class Tensor:
         )
 
     def reshape(self, *shape):
-        new_shape = tuple(shape)
+        # Support both reshape(2, 3) and reshape((2, 3))
+        if len(shape) == 1 and isinstance(shape[0], (tuple, list)):
+            new_shape = tuple(shape[0])
+        else:
+            new_shape = tuple(shape)
 
-        if math.prod(new_shape) != math.prod(self.shape):
+        total_elements = math.prod(self.shape)
+
+        # Find inferred dimension
+        inferred_dims = [
+            axis for axis, dim in enumerate(new_shape)
+            if dim == -1
+        ]
+
+        if len(inferred_dims) > 1:
+            raise ValueError(
+                "Only one dimension can be inferred."
+            )
+
+        if inferred_dims:
+            inferred_axis = inferred_dims[0]
+
+            known_dimensions_product = math.prod(
+                dim for dim in new_shape if dim != -1
+            )
+
+            if known_dimensions_product == 0:
+                raise ValueError(
+                    "Cannot infer dimension when known dimensions product is zero."
+                )
+
+            if total_elements % known_dimensions_product != 0:
+                raise ValueError(
+                    "Cannot infer dimension: element count is not divisible."
+                )
+
+            inferred_dimension = (
+                total_elements // known_dimensions_product
+            )
+
+            new_shape = list(new_shape)
+            new_shape[inferred_axis] = inferred_dimension
+            new_shape = tuple(new_shape)
+
+        elif math.prod(new_shape) != total_elements:
             raise ValueError(
                 "New shape must have the same number of elements."
+            )
+
+        if any(dim < 0 for dim in new_shape):
+            raise ValueError(
+                "Shape dimensions must be non-negative."
             )
 
         if not self.is_contiguous():
@@ -161,7 +208,6 @@ class Tensor:
             strides=tuple(new_strides),
             offset=self.offset,
         )
-
     def is_contiguous(self) -> bool:
         """Check whether strides match the standard row-major layout."""
         return self.strides == self._compute_contiguous_strides(self.shape)
