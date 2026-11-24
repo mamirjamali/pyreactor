@@ -208,6 +208,10 @@ class Tensor:
             strides=tuple(new_strides),
             offset=self.offset,
         )
+    
+    def flatten(self):
+        return self.reshape(math.prod(self.shape))
+    
     def is_contiguous(self) -> bool:
         """Check whether strides match the standard row-major layout."""
         return self.strides == self._compute_contiguous_strides(self.shape)

@@ -468,6 +468,45 @@ def test_reshape_invalid_inferred_dimension():
 
     with pytest.raises(ValueError):
         t.reshape(5, -1)
+
+
+def test_flatten_2d_tensor():
+    t = Tensor(list(range(12)), (3, 4))
+
+    result = t.flatten()
+
+    assert result.shape == (12,)
+    assert result.strides == (1,)
+    assert result.storage is t.storage
+
+
+def test_flatten_3d_tensor():
+    t = Tensor(list(range(24)), (2, 3, 4))
+
+    result = t.flatten()
+
+    assert result.shape == (24,)
+    assert result.strides == (1,)
+
+
+def test_flatten_preserves_offset():
+    t = Tensor(list(range(12)), (3, 4))
+    view = t[1:, :]
+
+    result = view.flatten()
+
+    assert result.shape == (8,)
+    assert result.offset == 4
+    assert result.storage is t.storage
+
+
+def test_flatten_non_contiguous_tensor():
+    t = Tensor(list(range(6)), (2, 3))
+    transposed = t.transpose(0, 1)
+
+    with pytest.raises(ValueError):
+        transposed.flatten()
+
 # ---------------------------------------------------------------------------
 # Ellipsis
 # ---------------------------------------------------------------------------
