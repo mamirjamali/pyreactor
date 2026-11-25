@@ -137,7 +137,7 @@ class Tensor:
         )
 
     def reshape(self, *shape):
-        # Support both reshape(2, 3) and reshape((2, 3))
+        # Normalize input
         if len(shape) == 1 and isinstance(shape[0], (tuple, list)):
             new_shape = tuple(shape[0])
         else:
@@ -145,40 +145,34 @@ class Tensor:
 
         total_elements = math.prod(self.shape)
 
-        # Find inferred dimension
+        # Validate dimensions
+        if any(not isinstance(dim, int) or isinstance(dim, bool)
+            for dim in new_shape):
+            raise TypeError("Shape dimensions must be integers.")
+
         inferred_dims = [
-            axis for axis, dim in enumerate(new_shape)
-            if dim == -1
+            i for i, dim in enumerate(new_shape) if dim == -1
         ]
 
         if len(inferred_dims) > 1:
-            raise ValueError(
-                "Only one dimension can be inferred."
-            )
+            raise ValueError("Only one dimension can be inferred.")
 
+        if any(dim < -1 for dim in new_shape):
+            raise ValueError("Shape dimensions must be non-negative.")
+
+        # Infer -1
         if inferred_dims:
-            inferred_axis = inferred_dims[0]
-
-            known_dimensions_product = math.prod(
+            axis = inferred_dims[0]
+            known_product = math.prod(
                 dim for dim in new_shape if dim != -1
             )
 
-            if known_dimensions_product == 0:
-                raise ValueError(
-                    "Cannot infer dimension when known dimensions product is zero."
-                )
+            if known_product == 0 or total_elements % known_product != 0:
+                raise ValueError("Cannot infer the requested dimension.")
 
-            if total_elements % known_dimensions_product != 0:
-                raise ValueError(
-                    "Cannot infer dimension: element count is not divisible."
-                )
-
-            inferred_dimension = (
-                total_elements // known_dimensions_product
-            )
-
+            inferred = total_elements // known_product
             new_shape = list(new_shape)
-            new_shape[inferred_axis] = inferred_dimension
+            new_shape[axis] = inferred
             new_shape = tuple(new_shape)
 
         elif math.prod(new_shape) != total_elements:
@@ -186,31 +180,99 @@ class Tensor:
                 "New shape must have the same number of elements."
             )
 
-        if any(dim < 0 for dim in new_shape):
-            raise ValueError(
-                "Shape dimensions must be non-negative."
+        # Try to compute strides for a view
+        old_shape = self.shape
+        old_strides = self.strides
+        new_strides = [0] * len(new_shape)
+
+        view_dim = len(new_shape) - 1
+        tensor_numel = 1
+        view_numel = 1
+        chunk_base_stride = old_strides[-1] if old_strides else 1
+        can_view = True
+
+        for tensor_dim in range(len(old_shape) - 1, -1, -1):
+            tensor_numel *= old_shape[tensor_dim]
+
+            chunk_boundary = (
+                tensor_dim == 0
+                or (
+                    old_shape[tensor_dim - 1] != 1
+                    and old_strides[tensor_dim - 1]
+                    != tensor_numel * chunk_base_stride
+                )
             )
 
-        if not self.is_contiguous():
-            raise ValueError(
-                "Cannot reshape a non-contiguous tensor yet."
+            if chunk_boundary:
+                while (
+                    view_dim >= 0
+                    and (
+                        view_numel < tensor_numel
+                        or new_shape[view_dim] == 1
+                    )
+                ):
+                    new_strides[view_dim] = view_numel * chunk_base_stride
+                    view_numel *= new_shape[view_dim]
+                    view_dim -= 1
+
+                if view_numel != tensor_numel:
+                    can_view = False
+                    break
+
+                if tensor_dim > 0:
+                    chunk_base_stride = old_strides[tensor_dim - 1]
+
+                tensor_numel = 1
+                view_numel = 1
+
+        if view_dim != -1:
+            can_view = False
+
+        if can_view:
+            return self._create_view(
+                shape=new_shape,
+                strides=tuple(new_strides),
+                offset=self.offset,
             )
 
-        new_strides = [1] * len(new_shape)
-
-        for axis in range(len(new_shape) - 2, -1, -1):
-            new_strides[axis] = (
-                new_strides[axis + 1] * new_shape[axis + 1]
-            )
-
-        return self._create_view(
-            shape=new_shape,
-            strides=tuple(new_strides),
-            offset=self.offset,
-        )
+        # If a view is impossible, copy in logical order and reshape
+        return self.contiguous().reshape(new_shape)
     
     def flatten(self):
         return self.reshape(math.prod(self.shape))
+
+    def squeeze(self, dim=None):
+        if dim is None:
+            axes = [
+                i for i, size in enumerate(self.shape)
+                if size != 1
+            ]
+        else:
+            if not isinstance(dim, int) or isinstance(dim, bool):
+                raise TypeError("Dimension must be an integer.")
+
+            if dim < 0:
+                dim += len(self.shape)
+
+            if dim < 0 or dim >= len(self.shape):
+                raise IndexError("Dimension out of range.")
+
+            if self.shape[dim] != 1:
+                return self
+
+            axes = [
+                i for i in range(len(self.shape))
+                if i != dim
+            ]
+
+        new_shape = tuple(self.shape[i] for i in axes)
+        new_strides = tuple(self.strides[i] for i in axes)
+
+        return self._create_view(
+            shape=new_shape,
+            strides=new_strides,
+            offset=self.offset,
+        )
     
     def is_contiguous(self) -> bool:
         """Check whether strides match the standard row-major layout."""
