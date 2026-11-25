@@ -425,8 +425,11 @@ def test_reshape_non_contiguous_tensor():
     t = Tensor(list(range(6)), (2, 3))
     transposed = t.transpose(0, 1)
 
-    with pytest.raises(ValueError):
-        transposed.reshape(6)
+    result = transposed.reshape(6)
+
+    assert result.shape == (6,)
+    assert result.storage is not transposed.storage
+    assert result.storage == [0, 3, 1, 4, 2, 5]
 
 
 def test_reshape_infer_one_dimension():
@@ -504,9 +507,40 @@ def test_flatten_non_contiguous_tensor():
     t = Tensor(list(range(6)), (2, 3))
     transposed = t.transpose(0, 1)
 
-    with pytest.raises(ValueError):
-        transposed.flatten()
+    result = transposed.flatten()
 
+    assert result.shape == (6,)
+    assert result.strides == (1,)
+    assert result.storage == [0, 3, 1, 4, 2, 5]
+    assert result.storage is not transposed.storage
+
+    # Original tensor remains unchanged
+    assert transposed.shape == (3, 2)
+    assert transposed.strides == (1, 3)
+
+def test_squeeze_all_singleton_dimensions():
+    t = Tensor(list(range(12)), (1, 3, 1, 4))
+
+    result = t.squeeze()
+
+    assert result.shape == (3, 4)
+    assert result.storage is t.storage
+
+
+def test_squeeze_specific_dimension():
+    t = Tensor(list(range(12)), (1, 3, 4))
+
+    result = t.squeeze(0)
+
+    assert result.shape == (3, 4)
+
+
+def test_squeeze_non_singleton_dimension():
+    t = Tensor(list(range(12)), (1, 3, 4))
+
+    result = t.squeeze(1)
+
+    assert result.shape == (1, 3, 4)
 # ---------------------------------------------------------------------------
 # Ellipsis
 # ---------------------------------------------------------------------------
