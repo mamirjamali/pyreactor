@@ -274,6 +274,38 @@ class Tensor:
             offset=self.offset,
         )
     
+    def unsqueeze(self, dim):
+        if not isinstance(dim, int) or isinstance(dim, bool):
+            raise TypeError("Dimension must be an integer.")
+
+        ndim = len(self.shape)
+
+        # Normalize negative dimension
+        if dim < 0:
+            dim += ndim + 1
+
+        if dim < 0 or dim > ndim:
+            raise IndexError("Dimension out of range.")
+
+        # Insert new dimension
+        new_shape = list(self.shape)
+        new_shape.insert(dim, 1)
+
+        # Calculate the new stride
+        if dim < ndim:
+            new_stride = self.strides[dim] * self.shape[dim]
+        else:
+            new_stride = 1
+
+        new_strides = list(self.strides)
+        new_strides.insert(dim, new_stride)
+
+        return self._create_view(
+            shape=tuple(new_shape),
+            strides=tuple(new_strides),
+            offset=self.offset,
+        )
+    
     def is_contiguous(self) -> bool:
         """Check whether strides match the standard row-major layout."""
         return self.strides == self._compute_contiguous_strides(self.shape)
