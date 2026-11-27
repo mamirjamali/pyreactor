@@ -879,6 +879,177 @@ def test_expand_preserves_offset():
     assert result.offset == view.offset
     assert result.storage is view.storage
 
+# =========================
+# Repeat
+# =========================
+
+def test_repeat_1d():
+    t = Tensor([10, 20, 30], (3,))
+
+    result = t.repeat(2)
+
+    assert result.shape == (6,)
+    assert result.storage == [10, 20, 30, 10, 20, 30]
+
+
+def test_repeat_2d():
+    t = Tensor([1, 2, 3, 4], (2, 2))
+
+    result = t.repeat(2, 3)
+
+    assert result.shape == (4, 6)
+    assert result.storage == [
+        1, 2, 1, 2, 1, 2,
+        3, 4, 3, 4, 3, 4,
+        1, 2, 1, 2, 1, 2,
+        3, 4, 3, 4, 3, 4,
+    ]
+
+
+def test_repeat_3d():
+    t = Tensor(list(range(1, 9)), (2, 2, 2))
+
+    result = t.repeat(2, 1, 2)
+
+    assert result.shape == (4, 2, 4)
+    assert result.storage == [
+        1, 2, 1, 2,
+        3, 4, 3, 4,
+        5, 6, 5, 6,
+        7, 8, 7, 8,
+
+        1, 2, 1, 2,
+        3, 4, 3, 4,
+        5, 6, 5, 6,
+        7, 8, 7, 8,
+    ]
+
+
+def test_repeat_with_tuple():
+    t = Tensor([1, 2], (2,))
+
+    result = t.repeat((3,))
+
+    assert result.shape == (6,)
+    assert result.storage == [1, 2, 1, 2, 1, 2]
+
+
+def test_repeat_with_list():
+    t = Tensor([1, 2], (2,))
+
+    result = t.repeat([2])
+
+    assert result.shape == (4,)
+    assert result.storage == [1, 2, 1, 2]
+
+
+def test_repeat_one():
+    t = Tensor([1, 2, 3], (3,))
+
+    result = t.repeat(1)
+
+    assert result.shape == (3,)
+    assert result.storage == [1, 2, 3]
+
+
+def test_repeat_zero():
+    t = Tensor([1, 2, 3], (3,))
+
+    result = t.repeat(0)
+
+    assert result.shape == (0,)
+    assert result.storage == []
+
+
+def test_repeat_zero_in_one_dimension():
+    t = Tensor([1, 2, 3, 4], (2, 2))
+
+    result = t.repeat(0, 2)
+
+    assert result.shape == (0, 4)
+    assert result.storage == []
+
+
+def test_repeat_shares_no_storage():
+    t = Tensor([1, 2, 3], (3,))
+
+    result = t.repeat(2)
+
+    assert result.storage is not t.storage
+
+
+def test_repeat_modification_does_not_affect_original():
+    t = Tensor([1, 2, 3], (3,))
+
+    result = t.repeat(2)
+    result[0] = 100
+
+    assert t.storage == [1, 2, 3]
+
+
+def test_repeat_modification_does_not_affect_result():
+    t = Tensor([1, 2, 3], (3,))
+
+    result = t.repeat(2)
+    t[0] = 100
+
+    assert result.storage == [1, 2, 3, 1, 2, 3]
+
+
+def test_repeat_non_contiguous_tensor():
+    t = Tensor([1, 2, 3, 4, 5, 6], (2, 3))
+    transposed = t.transpose(0, 1)
+
+    result = transposed.repeat(2, 1)
+
+    assert result.shape == (6, 2)
+
+    # Check logical values, not just physical storage order.
+    assert result[0, 0] == 1
+    assert result[0, 1] == 4
+    assert result[1, 0] == 2
+    assert result[1, 1] == 5
+    assert result[2, 0] == 3
+    assert result[2, 1] == 6
+    assert result[3, 0] == 1
+    assert result[3, 1] == 4
+    assert result[4, 0] == 2
+    assert result[4, 1] == 5
+    assert result[5, 0] == 3
+    assert result[5, 1] == 6
+
+
+def test_repeat_invalid_number_of_dimensions():
+    t = Tensor([1, 2, 3, 4], (2, 2))
+
+    with pytest.raises(ValueError):
+        t.repeat(2)
+
+
+def test_repeat_negative_value():
+    t = Tensor([1, 2, 3], (3,))
+
+    with pytest.raises(ValueError):
+        t.repeat(-1)
+
+
+def test_repeat_float_value():
+    t = Tensor([1, 2, 3], (3,))
+
+    with pytest.raises(TypeError):
+        t.repeat(2.5)
+
+
+def test_repeat_bool_value():
+    t = Tensor([1, 2, 3], (3,))
+
+    with pytest.raises(TypeError):
+        t.repeat(True)
+    t = Tensor([1, 2, 3], (3,))
+
+    with pytest.raises(TypeError):
+        t.repeat(True)
+
 # ---------------------------------------------------------------------------
 # Transposition
 # ---------------------------------------------------------------------------

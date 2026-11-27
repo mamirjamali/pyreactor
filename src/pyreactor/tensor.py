@@ -414,6 +414,39 @@ class Tensor:
             offset=self.offset,
         )
 
+    def repeat(self, *repeats):
+        if len(repeats) == 1 and isinstance(repeats[0], (tuple, list)):
+            repeats = tuple(repeats[0])
+
+        if len(repeats) != len(self.shape):
+            raise ValueError("Number of repeats must match tensor dimensions.")
+
+        if any(
+            not isinstance(r, int) or isinstance(r, bool)
+            for r in repeats
+        ):
+            raise TypeError("Repeats must be integers.")
+
+        if any(r < 0 for r in repeats):
+            raise ValueError("Repeats must be non-negative.")
+
+        new_shape = tuple(
+            size * repeat
+            for size, repeat in zip(self.shape, repeats)
+        )
+
+        new_data = []
+
+        for output_coord in iter_coordinates(new_shape):
+            source_coord = tuple(
+                coord % size
+                for coord, size in zip(output_coord, self.shape)
+            )
+
+            new_data.append(self._get_integer_indexed(source_coord))
+
+        return Tensor(new_data, new_shape)
+
     def is_contiguous(self) -> bool:
         """Check whether strides match the standard row-major layout."""
         return self.strides == self._compute_contiguous_strides(self.shape)
