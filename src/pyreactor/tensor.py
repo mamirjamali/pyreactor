@@ -306,6 +306,50 @@ class Tensor:
             offset=self.offset,
         )
     
+    def permute(self, *dims):
+        # Support tuple/list input
+        if len(dims) == 1 and isinstance(dims[0], (tuple, list)):
+            dims = tuple(dims[0])
+
+        ndim = len(self.shape)
+
+        # Validate number of dimensions
+        if len(dims) != ndim:
+            raise ValueError(
+                "Number of dimensions must match tensor dimensions."
+            )
+
+        # Validate dimension types
+        if any(not isinstance(dim, int) or isinstance(dim, bool)
+            for dim in dims):
+            raise TypeError("Dimensions must be integers.")
+
+        # Normalize negative dimensions
+        dims = tuple(
+            dim + ndim if dim < 0 else dim
+            for dim in dims
+        )
+
+        # Validate dimension range
+        if any(dim < 0 or dim >= ndim for dim in dims):
+            raise IndexError("Dimension out of range.")
+
+        # Ensure every dimension appears exactly once
+        if len(set(dims)) != ndim:
+            raise ValueError(
+                "Each dimension must appear exactly once."
+            )
+
+        # Reorder shape and strides
+        new_shape = tuple(self.shape[dim] for dim in dims)
+        new_strides = tuple(self.strides[dim] for dim in dims)
+
+        return self._create_view(
+            shape=new_shape,
+            strides=new_strides,
+            offset=self.offset,
+        )
+    
     def is_contiguous(self) -> bool:
         """Check whether strides match the standard row-major layout."""
         return self.strides == self._compute_contiguous_strides(self.shape)

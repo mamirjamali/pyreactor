@@ -676,6 +676,103 @@ def test_multiple_ellipsis_raises():
 
     with pytest.raises(IndexError):
         t[..., ..., 0]
+
+
+def test_permute_2d():
+    t = Tensor([1, 2, 3, 4, 5, 6], (2, 3))
+
+    result = t.permute(1, 0)
+
+    assert result.shape == (3, 2)
+    assert result.strides == (1, 3)
+
+
+def test_permute_3d():
+    t = Tensor(list(range(1, 25)), (2, 3, 4))
+
+    result = t.permute(2, 0, 1)
+
+    assert result.shape == (4, 2, 3)
+    assert result.strides == (1, 12, 4)
+
+
+def test_permute_data():
+    t = Tensor(list(range(1, 25)), (2, 3, 4))
+
+    result = t.permute(2, 0, 1)
+
+    assert result[0, 0, 0] == t[0, 0, 0]
+    assert result[0, 1, 0] == t[1, 0, 0]
+    assert result[1, 0, 0] == t[0, 0, 1]
+    assert result[3, 1, 2] == t[1, 2, 3]
+
+
+def test_permute_shares_storage():
+    t = Tensor([1, 2, 3, 4, 5, 6], (2, 3))
+
+    result = t.permute(1, 0)
+
+    assert result.storage is t.storage
+
+    result[0, 0] = 100
+
+    assert t[0, 0] == 100
+
+
+def test_permute_negative_dims():
+    t = Tensor(list(range(1, 25)), (2, 3, 4))
+
+    result = t.permute(-1, -3, -2)
+
+    assert result.shape == (4, 2, 3)
+    assert result.strides == (1, 12, 4)
+
+
+def test_permute_tuple_input():
+    t = Tensor(list(range(1, 25)), (2, 3, 4))
+
+    result = t.permute((2, 0, 1))
+
+    assert result.shape == (4, 2, 3)
+
+
+def test_permute_invalid_dimension_count():
+    t = Tensor(list(range(1, 25)), (2, 3, 4))
+
+    with pytest.raises(ValueError):
+        t.permute(0, 1)
+
+
+def test_permute_duplicate_dimensions():
+    t = Tensor(list(range(1, 25)), (2, 3, 4))
+
+    with pytest.raises(ValueError):
+        t.permute(0, 0, 2)
+
+
+def test_permute_out_of_range():
+    t = Tensor(list(range(1, 25)), (2, 3, 4))
+
+    with pytest.raises(IndexError):
+        t.permute(0, 1, 3)
+
+
+def test_permute_invalid_dimension_type():
+    t = Tensor(list(range(1, 25)), (2, 3, 4))
+
+    with pytest.raises(TypeError):
+        t.permute(0, 1.5, 2)
+
+
+def test_permute_preserves_offset():
+    t = Tensor(list(range(1, 13)), (3, 4))
+    view = t[:, 1:]
+
+    result = view.permute(1, 0)
+
+    assert result.shape == (3, 3)
+    assert result.offset == view.offset
+    assert result.storage is view.storage
 # ---------------------------------------------------------------------------
 # Transposition
 # ---------------------------------------------------------------------------
