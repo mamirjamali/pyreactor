@@ -773,6 +773,112 @@ def test_permute_preserves_offset():
     assert result.shape == (3, 3)
     assert result.offset == view.offset
     assert result.storage is view.storage
+
+
+def test_expand_basic():
+    t = Tensor([10, 20, 30], (1, 3))
+
+    result = t.expand(4, 3)
+
+    assert result.shape == (4, 3)
+    assert result.strides == (0, 1)
+
+
+def test_expand_multiple_dimensions():
+    t = Tensor([10, 20, 30], (1, 3, 1))
+
+    result = t.expand(4, 3, 5)
+
+    assert result.shape == (4, 3, 5)
+    assert result.strides == (0, 1, 0)
+
+
+def test_expand_add_dimensions():
+    t = Tensor([10, 20, 30], (3,))
+
+    result = t.expand(2, 4, 3)
+
+    assert result.shape == (2, 4, 3)
+    assert result.strides == (0, 0, 1)
+
+
+def test_expand_same_shape():
+    t = Tensor([1, 2, 3, 4, 5, 6], (2, 3))
+
+    result = t.expand(2, 3)
+
+    assert result.shape == (2, 3)
+    assert result.strides == (3, 1)
+    assert result.storage is t.storage
+
+
+def test_expand_tuple_input():
+    t = Tensor([10, 20, 30], (1, 3))
+
+    result = t.expand((4, 3))
+
+    assert result.shape == (4, 3)
+    assert result.strides == (0, 1)
+
+
+def test_expand_negative_one():
+    t = Tensor([1, 2, 3, 4, 5, 6], (1, 3))
+
+    result = t.expand(4, -1)
+
+    assert result.shape == (4, 3)
+    assert result.strides == (0, 1)
+
+
+def test_expand_invalid_dimension():
+    t = Tensor([1, 2, 3, 4, 5, 6], (2, 3))
+
+    with pytest.raises(ValueError):
+        t.expand(4, 3)
+
+
+def test_expand_fewer_dimensions():
+    t = Tensor([1, 2, 3, 4, 5, 6], (2, 3))
+
+    with pytest.raises(ValueError):
+        t.expand(3)
+
+
+def test_expand_invalid_negative_dimension():
+    t = Tensor([1, 2, 3], (1, 3))
+
+    with pytest.raises(ValueError):
+        t.expand(-2, 3)
+
+
+def test_expand_invalid_dimension_type():
+    t = Tensor([1, 2, 3], (1, 3))
+
+    with pytest.raises(TypeError):
+        t.expand(4, 3.5)
+
+
+def test_expand_shares_storage():
+    t = Tensor([10, 20, 30], (1, 3))
+
+    result = t.expand(4, 3)
+
+    assert result.storage is t.storage
+
+    result[2, 1] = 100
+
+    assert t[0, 1] == 100
+
+
+def test_expand_preserves_offset():
+    t = Tensor([1, 2, 3, 4, 5, 6], (2, 3))
+    view = t[:, 1:]
+
+    result = view.expand(2, 2)
+
+    assert result.offset == view.offset
+    assert result.storage is view.storage
+
 # ---------------------------------------------------------------------------
 # Transposition
 # ---------------------------------------------------------------------------

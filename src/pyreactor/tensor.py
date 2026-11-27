@@ -349,7 +349,71 @@ class Tensor:
             strides=new_strides,
             offset=self.offset,
         )
+
     
+    def expand(self, *shape):
+        # Support tuple/list input
+        if len(shape) == 1 and isinstance(shape[0], (tuple, list)):
+            shape = tuple(shape[0])
+
+        ndim = len(self.shape)
+
+        # Validate dimensions
+        if any(
+            not isinstance(dim, int) or isinstance(dim, bool)
+            for dim in shape
+        ):
+            raise TypeError("Shape dimensions must be integers.")
+
+        if len(shape) < ndim:
+            raise ValueError(
+                "Expanded shape cannot have fewer dimensions."
+            )
+
+        if any(dim < -1 for dim in shape):
+            raise ValueError(
+                "Only -1 is allowed as a negative dimension."
+            )
+
+        # Align original shape and strides to the right
+        extra_dims = len(shape) - ndim
+
+        old_shape = (1,) * extra_dims + self.shape
+        old_strides = (0,) * extra_dims + self.strides
+
+        new_shape = []
+        new_strides = []
+
+        for old_size, old_stride, new_size in zip(
+            old_shape, old_strides, shape
+        ):
+            # -1 means keep the original dimension
+            if new_size == -1:
+                if old_size == 1 and len(new_shape) < extra_dims:
+                    raise ValueError(
+                        "-1 cannot be used for newly added dimensions."
+                    )
+                new_size = old_size
+
+            if new_size == old_size:
+                new_shape.append(new_size)
+                new_strides.append(old_stride)
+
+            elif old_size == 1:
+                new_shape.append(new_size)
+                new_strides.append(0)
+
+            else:
+                raise ValueError(
+                    f"Cannot expand dimension from {old_size} to {new_size}."
+                )
+
+        return self._create_view(
+            shape=tuple(new_shape),
+            strides=tuple(new_strides),
+            offset=self.offset,
+        )
+
     def is_contiguous(self) -> bool:
         """Check whether strides match the standard row-major layout."""
         return self.strides == self._compute_contiguous_strides(self.shape)
